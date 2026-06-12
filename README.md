@@ -38,6 +38,14 @@ Profilwert, gegen den verglichen wurde — Agenten iterieren gegen diese Logs.
 Editions-Tiers (foundation/handcrafted/masterpiece) + `fixture` (nur Selbsttest). Schwellen-Pflege:
 bis Q-26 von Hand, Kalibrierung gegen die realen Editionen ist Slice 2.
 
+## Prod-Modus (Fleet-Cron, ADR-0150 Slice 4)
+
+`scripts/lhci-config.mjs --base-url https://<edition-domain> --profile profiles/<name>.json`
+erzeugt eine LHCI-Config gegen **Prod-URLs** statt dist (Aufrufer: Fleet-Cron in jhonas-os —
+die Prüf-Logik bleibt hier, I3/I8). Zusätzlich zu Scores + `image_kb`/`total_kb` blockieren im
+Prod-Modus auch `js_kb`/`font_kb` via resource-summary (ohne dist deckt check-assets sie nicht ab).
+Selbsttest-Job `fleet-mode` beweist grün (green-Fixture serviert) und rot (red-Fixture, js_kb=0).
+
 ## Versionierung & Release (Tag-Prozess)
 
 - Caller pinnen **`@v1`** (Major-Tag). Härtere Variante je Repo: SHA-Pin + Renovate.
