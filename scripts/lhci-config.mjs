@@ -11,8 +11,8 @@ import { readFileSync } from "node:fs";
 
 const arg = (k) => { const i = process.argv.indexOf(k); return i > -1 ? process.argv[i + 1] : null; };
 const dist = arg("--dist"), profilePath = arg("--profile"), baseUrl = arg("--base-url");
-if ((!dist && !baseUrl) || !profilePath) {
-  console.error("Usage: (--dist <dir> | --base-url <url>) --profile <json>"); process.exit(2);
+if ((!dist && !baseUrl) || (dist && baseUrl) || !profilePath) {
+  console.error("Usage: (--dist <dir> | --base-url <url>, genau eines) --profile <json>"); process.exit(2);
 }
 const profile = JSON.parse(readFileSync(profilePath, "utf8"));
 const lh = profile.lighthouse ?? {};
