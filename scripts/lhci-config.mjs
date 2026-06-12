@@ -28,12 +28,14 @@ if (budgets.total_kb !== undefined) {
   assertions["resource-summary:total:size"] = ["error", { maxNumericValue: budgets.total_kb * 1024 }];
 }
 
+const blocked = (arg("--blocked") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 process.stdout.write(JSON.stringify({
   ci: {
     collect: {
       staticDistDir: dist,
       url: routes.map((r) => `http://localhost/${r.replace(/^\//, "")}`),
       numberOfRuns: 1,
+      ...(blocked.length ? { settings: { blockedUrlPatterns: blocked } } : {}),
     },
     assert: { assertions },
     upload: { target: "filesystem", outputDir: ".lighthouseci-report" },
