@@ -15,7 +15,10 @@ const arg = (k) => { const i = process.argv.indexOf(k); return i > -1 ? process.
 const dist = arg("--dist"), profilePath = arg("--profile"), baselineDir = arg("--baseline") ?? "baseline";
 const profile = JSON.parse(readFileSync(profilePath, "utf8"));
 const cfg = profile.screenshots ?? {};
-const routes = cfg.routes ?? ["/"];
+const routesArg = ((i) => (i > -1 ? process.argv[i + 1] : ""))(process.argv.indexOf("--routes"));
+const routes = routesArg.split(",").map((s) => s.trim()).filter(Boolean).length
+  ? routesArg.split(",").map((s) => s.trim()).filter(Boolean)
+  : (cfg.routes ?? ["/"]);
 const threshold = (cfg.threshold_pct ?? 1.0) / 100;
 const outDir = ".screenshots";
 mkdirSync(outDir, { recursive: true });
