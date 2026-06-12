@@ -1,0 +1,9 @@
+{
+  "$schema": "./profile.schema.json",
+  "name": "fixture",
+  "routes": ["/", "/kontakt/"],
+  "lighthouse": { "performance": 80, "seo": 90, "best-practices": 90, "accessibility": 90 },
+  "budgets": { "total_kb": 200, "image_kb": 100, "font_kb": 50, "js_kb": 0 },
+  "structure": { "require": ["title", "meta_description", "og_image", "canonical", "lang"], "h1_per_page": 1 },
+  "screenshots": { "routes": ["/"], "threshold_pct": 5.0 }
+}

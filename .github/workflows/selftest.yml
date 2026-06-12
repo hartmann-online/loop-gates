@@ -1,0 +1,75 @@
+name: selftest
+
+# Gate-Efficacy für das Gates-Repo selbst (ADR-0123-Prinzip, Spec §5):
+#   schema  — alle Profile validieren gegen profile.schema.json
+#   green   — edition-quality (lokal, PR-Stand via gates-ref) muss auf fixtures/green GRÜN sein
+#   red     — jeder blockierende Eigen-Check muss fixtures/red ROT machen (erwartetes Fail)
+# Lighthouse/axe-Rot-Fälle sind bewusst nicht fixture-getestet (Fremd-Tools, Kosten) — dokumentiert.
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Profile gegen Schema validieren
+        run: |
+          npx --yes ajv-cli validate -s profiles/profile.schema.json \
+            -d "profiles/edition-foundation.json" \
+            -d "profiles/edition-handcrafted.json" \
+            -d "profiles/edition-masterpiece.json" \
+            -d "profiles/fixture.json"
+
+  green:
+    uses: ./.github/workflows/edition-quality.yml
+    with:
+      profile: fixture
+      workdir: fixtures/green
+      install-cmd: "npm install --no-audit --no-fund"
+      gates-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Red-Fixture bauen
+        working-directory: fixtures/red
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: structure MUSS rot sein
+        run: |
+          if node scripts/check-structure.mjs --dist fixtures/red/dist --profile profiles/fixture.json; then
+            echo "::error::check-structure hat die rote Fixture NICHT gefangen"; exit 1
+          fi
+          echo "ok: structure fängt die Verstöße."
+      - name: assets MUSS rot sein (Zero-JS)
+        run: |
+          if node scripts/check-assets.mjs --dist fixtures/red/dist --profile profiles/fixture.json; then
+            echo "::error::check-assets hat die rote Fixture NICHT gefangen"; exit 1
+          fi
+          echo "ok: assets fängt das JS-Budget."
+      - name: links MUSS rot sein (toter interner Link)
+        run: |
+          if npx --yes linkinator ./fixtures/red/dist --recurse --skip "^https?://" --verbosity error; then
+            echo "::error::linkinator hat den toten Link NICHT gefangen"; exit 1
+          fi
+          echo "ok: links fängt den toten internen Link."
+      - name: structure MUSS auf green grün sein (Gegenprobe)
+        working-directory: fixtures/green
+        run: |
+          npm install --no-audit --no-fund && npm run build
+          node ../../scripts/check-structure.mjs --dist dist --profile ../../profiles/fixture.json
+          node ../../scripts/check-assets.mjs   --dist dist --profile ../../profiles/fixture.json

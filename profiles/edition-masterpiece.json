@@ -1,0 +1,9 @@
+{
+  "$schema": "./profile.schema.json",
+  "name": "edition-masterpiece",
+  "routes": ["/", "/kontakt/"],
+  "lighthouse": { "performance": 98, "seo": 100, "best-practices": 100, "accessibility": 100 },
+  "budgets": { "total_kb": 450, "image_kb": 220, "font_kb": 100, "js_kb": 0 },
+  "structure": { "require": ["title", "meta_description", "og_image", "canonical", "lang"], "h1_per_page": 1 },
+  "screenshots": { "routes": ["/", "/kontakt/"], "threshold_pct": 0.5 }
+}

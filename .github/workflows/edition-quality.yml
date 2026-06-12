@@ -1,0 +1,112 @@
+name: edition-quality
+
+# Zentrales Quality-Gate für Kultmeister-Editionen (ADR-0150 E2/E3).
+# Aufruf aus einem Edition-Repo (Hook):
+#   jobs:
+#     quality:
+#       uses: hartmann-online/loop-gates/.github/workflows/edition-quality.yml@v1
+#       with: { profile: edition-handcrafted }
+#
+# Fehlersemantik: Job `quality` = blockierend (fail-closed) · Job `screenshots` = warn-only.
+# Lighthouse-Ausnahme (ADR-0072): Performance-Score warn-only; SEO/Best-Practices/A11y-Scores
+# und die deterministischen Gewichts-Budgets (total/image/font/js_kb) blockieren.
+# Jobs bewusst konsolidiert (1 blockierender Job): ein Required Check, sequentielle, agent-lesbare
+# Logs, kein Artefakt-Geschiebe — Semantik der Spec bleibt erhalten.
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        description: "Profilname unter profiles/ (ohne .json)"
+        type: string
+        required: true
+      node-version:
+        type: string
+        default: "22"
+      install-cmd:
+        type: string
+        default: "npm ci"
+      build-cmd:
+        type: string
+        default: "npm run build"
+      dist-dir:
+        type: string
+        default: "dist"
+      workdir:
+        description: "Arbeitsverzeichnis der Site im Caller-Repo"
+        type: string
+        default: "."
+      gates-ref:
+        description: "Ref des loop-gates-Repos (Default v1; Selbsttest setzt den PR-SHA)"
+        type: string
+        default: "v1"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hartmann-online/loop-gates
+          ref: ${{ inputs.gates-ref }}
+          path: .gates
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install & Build
+        run: |
+          ${{ inputs.install-cmd }}
+          ${{ inputs.build-cmd }}
+
+      - name: Structure (Pflicht-Meta, h1)   # blockierend
+        run: node "$GITHUB_WORKSPACE/.gates/scripts/check-structure.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json"
+
+      - name: Assets (Gewichts-Budgets)      # blockierend, inkl. js_kb (Zero-JS, ADR-0081)
+        run: node "$GITHUB_WORKSPACE/.gates/scripts/check-assets.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json"
+
+      - name: Links (interne Links/Assets)   # blockierend
+        run: npx --yes linkinator "./${{ inputs.dist-dir }}" --recurse --skip "^https?://" --verbosity error
+
+      - name: Lighthouse (Scores je Profil)  # perf=warn, seo/bp/a11y=blockierend (ADR-0072)
+        run: |
+          node "$GITHUB_WORKSPACE/.gates/scripts/lhci-config.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" > lighthouserc.json
+          npx --yes @lhci/cli autorun --config=lighthouserc.json
+
+  screenshots:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: hartmann-online/loop-gates
+          ref: ${{ inputs.gates-ref }}
+          path: .gates
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Build
+        run: |
+          ${{ inputs.install-cmd }}
+          ${{ inputs.build-cmd }}
+      - name: Screenshots + Diff gegen baseline/ (warn-only)
+        run: |
+          npm install --no-save playwright pixelmatch pngjs >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+          node "$GITHUB_WORKSPACE/.gates/scripts/screenshots.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --baseline baseline
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-${{ inputs.profile }}
+          path: ${{ inputs.workdir }}/.screenshots/
+          if-no-files-found: ignore

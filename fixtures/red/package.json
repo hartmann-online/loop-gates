@@ -1,0 +1,5 @@
+{
+  "name": "fixture-red",
+  "private": true,
+  "scripts": { "build": "node build.mjs" }
+}
