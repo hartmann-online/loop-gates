@@ -9,7 +9,8 @@ const dist = arg("--dist"), profilePath = arg("--profile");
 if (!dist || !profilePath) { console.error("Usage: --dist <dir> --profile <json>"); process.exit(2); }
 const profile = JSON.parse(readFileSync(profilePath, "utf8"));
 const lh = profile.lighthouse ?? {};
-const routes = profile.routes?.length ? profile.routes : ["/"];
+const routesArg = (arg("--routes") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const routes = routesArg.length ? routesArg : (profile.routes?.length ? profile.routes : ["/"]);
 
 const level = (cat) => (cat === "performance" ? "warn" : "error");
 const assertions = {};

@@ -36,6 +36,10 @@ on:
         description: "Arbeitsverzeichnis der Site im Caller-Repo"
         type: string
         default: "."
+      routes:
+        description: "Komma-separierte Routen-Liste; überschreibt profile.routes (Editionen haben individuelle Seitenbäume)"
+        type: string
+        default: ""
       gates-ref:
         description: "Ref des loop-gates-Repos (Default v1; Selbsttest setzt den PR-SHA)"
         type: string
@@ -78,7 +82,7 @@ jobs:
 
       - name: Lighthouse (Scores je Profil)  # perf=warn, seo/bp/a11y=blockierend (ADR-0072)
         run: |
-          node "$GITHUB_WORKSPACE/.gates/scripts/lhci-config.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" > lighthouserc.json
+          node "$GITHUB_WORKSPACE/.gates/scripts/lhci-config.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --routes "${{ inputs.routes }}" > lighthouserc.json
           npx --yes @lhci/cli autorun --config=lighthouserc.json
 
   screenshots:
@@ -105,7 +109,7 @@ jobs:
         run: |
           npm install --no-save playwright pixelmatch pngjs >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null
-          node "$GITHUB_WORKSPACE/.gates/scripts/screenshots.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --baseline baseline
+          node "$GITHUB_WORKSPACE/.gates/scripts/screenshots.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --baseline baseline --routes "${{ inputs.routes }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
