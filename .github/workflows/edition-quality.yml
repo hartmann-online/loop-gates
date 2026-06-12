@@ -40,6 +40,10 @@ on:
         description: "Komma-separierte Routen-Liste; überschreibt profile.routes (Editionen haben individuelle Seitenbäume)"
         type: string
         default: ""
+      link-skip:
+        description: "Zusätzliches Regex für Links, die zur LAUFZEIT via Platform-Rewrite aufgelöst werden (z. B. Plausible-Proxy /js/script\\.js) und statisch 404 wären"
+        type: string
+        default: ""
       gates-ref:
         description: "Ref des loop-gates-Repos (Default v1; Selbsttest setzt den PR-SHA)"
         type: string
@@ -78,7 +82,10 @@ jobs:
       - name: Links (interne Links/Assets)   # blockierend
         # Lookahead: linkinator serviert das dist lokal über http(s)://localhost — nur EXTERNE
         # Domains werden im PR-Pfad übersprungen (externe Prüfung gehört in Content-Check/Cron).
-        run: npx --yes linkinator "./${{ inputs.dist-dir }}" --recurse --skip "^https?://(?!localhost|127\.0\.0\.1)" --verbosity error
+        run: |
+          SKIP='^https?://(?!localhost|127\.0\.0\.1)'
+          if [ -n "${{ inputs.link-skip }}" ]; then SKIP="$SKIP|${{ inputs.link-skip }}"; fi
+          npx --yes linkinator "./${{ inputs.dist-dir }}" --recurse --skip "$SKIP" --verbosity error
 
       - name: Lighthouse (Scores je Profil)  # perf=warn, seo/bp/a11y=blockierend (ADR-0072)
         run: |
