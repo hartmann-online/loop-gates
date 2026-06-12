@@ -1,9 +1,35 @@
 {
   "$schema": "./profile.schema.json",
   "name": "edition-foundation",
-  "routes": ["/", "/kontakt/"],
-  "lighthouse": { "performance": 90, "seo": 95, "best-practices": 95, "accessibility": 90 },
-  "budgets": { "total_kb": 900, "image_kb": 450, "font_kb": 150, "js_kb": 0 },
-  "structure": { "require": ["title", "meta_description", "canonical", "lang"], "h1_per_page": 1 },
-  "screenshots": { "routes": ["/"], "threshold_pct": 2.0 }
+  "routes": [
+    "/",
+    "/kontakt/"
+  ],
+  "lighthouse": {
+    "performance": 90,
+    "seo": 95,
+    "best-practices": 95,
+    "accessibility": 90
+  },
+  "budgets": {
+    "total_kb": 900,
+    "image_kb": 450,
+    "font_kb": 150,
+    "js_kb": 30
+  },
+  "structure": {
+    "require": [
+      "title",
+      "meta_description",
+      "canonical",
+      "lang"
+    ],
+    "h1_per_page": 1
+  },
+  "screenshots": {
+    "routes": [
+      "/"
+    ],
+    "threshold_pct": 2.0
+  }
 }

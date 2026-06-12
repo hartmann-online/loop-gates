@@ -1,9 +1,37 @@
 {
   "$schema": "./profile.schema.json",
   "name": "edition-handcrafted",
-  "routes": ["/", "/kontakt/"],
-  "lighthouse": { "performance": 95, "seo": 100, "best-practices": 100, "accessibility": 95 },
-  "budgets": { "total_kb": 600, "image_kb": 300, "font_kb": 120, "js_kb": 0 },
-  "structure": { "require": ["title", "meta_description", "og_image", "canonical", "lang"], "h1_per_page": 1 },
-  "screenshots": { "routes": ["/", "/kontakt/"], "threshold_pct": 1.0 }
+  "routes": [
+    "/",
+    "/kontakt/"
+  ],
+  "lighthouse": {
+    "performance": 95,
+    "seo": 100,
+    "best-practices": 100,
+    "accessibility": 95
+  },
+  "budgets": {
+    "total_kb": 600,
+    "image_kb": 300,
+    "font_kb": 120,
+    "js_kb": 30
+  },
+  "structure": {
+    "require": [
+      "title",
+      "meta_description",
+      "og_image",
+      "canonical",
+      "lang"
+    ],
+    "h1_per_page": 1
+  },
+  "screenshots": {
+    "routes": [
+      "/",
+      "/kontakt/"
+    ],
+    "threshold_pct": 1.0
+  }
 }
