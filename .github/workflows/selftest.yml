@@ -73,3 +73,34 @@ jobs:
           npm install --no-audit --no-fund && npm run build
           node ../../scripts/check-structure.mjs --dist dist --profile ../../profiles/fixture.json
           node ../../scripts/check-assets.mjs   --dist dist --profile ../../profiles/fixture.json
+
+  # Prod-Modus (--base-url, Fleet-Cron ADR-0150 Slice 4): green serviert muss GRÜN,
+  # red serviert muss ROT sein (js_kb=0 via resource-summary:script + Score-Verstöße).
+  fleet-mode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Fixtures bauen
+        run: |
+          (cd fixtures/green && npm install --no-audit --no-fund && npm run build)
+          (cd fixtures/red   && npm install --no-audit --no-fund && npm run build)
+      - name: lhci installieren (isoliert, gepinnt)
+        run: npm install --no-save --prefix .gates-tools @lhci/cli@0.15.1 >/dev/null 2>&1
+      - name: Prod-Modus MUSS auf green grün sein
+        run: |
+          npx --yes http-server fixtures/green/dist -p 8080 --silent &
+          sleep 2
+          node scripts/lhci-config.mjs --base-url http://127.0.0.1:8080 --profile profiles/fixture.json > rc-green.json
+          .gates-tools/node_modules/.bin/lhci autorun --config=rc-green.json
+          echo "ok: Prod-Modus ist auf der grünen Fixture grün."
+      - name: Prod-Modus MUSS auf red rot sein
+        run: |
+          npx --yes http-server fixtures/red/dist -p 8081 --silent &
+          sleep 2
+          node scripts/lhci-config.mjs --base-url http://127.0.0.1:8081 --profile profiles/fixture.json --routes "/" > rc-red.json
+          if .gates-tools/node_modules/.bin/lhci autorun --config=rc-red.json; then
+            echo "::error::Prod-Modus hat die rote Fixture NICHT gefangen"; exit 1
+          fi
+          echo "ok: Prod-Modus fängt js_kb-Verstoß + Score-Verstöße."
