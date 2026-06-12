@@ -83,7 +83,9 @@ jobs:
       - name: Lighthouse (Scores je Profil)  # perf=warn, seo/bp/a11y=blockierend (ADR-0072)
         run: |
           node "$GITHUB_WORKSPACE/.gates/scripts/lhci-config.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --routes "${{ inputs.routes }}" > lighthouserc.json
-          npx --yes @lhci/cli autorun --config=lighthouserc.json
+          # Isoliert vom Caller-node_modules (Repo-overrides können lhci/express brechen) + gepinnt.
+          npm install --no-save --prefix "$GITHUB_WORKSPACE/.gates-tools" @lhci/cli@0.15.1 >/dev/null 2>&1
+          "$GITHUB_WORKSPACE/.gates-tools/node_modules/.bin/lhci" autorun --config=lighthouserc.json
 
   screenshots:
     runs-on: ubuntu-latest
