@@ -17,6 +17,16 @@ const assertions = {};
 for (const [cat, min] of Object.entries(lh)) {
   assertions[`categories:${cat}`] = [level(cat), { minScore: min / 100 }];
 }
+// Seitengewicht pro Route (blockierend, deterministisch aus dem realen Page-Load):
+// image_kb/total_kb aus dem Profil → Lighthouse resource-summary (v1.2.0; check-assets misst
+// nur noch js/font als dist-Summe — Responsive-Pipelines machen dist-Summen für Bilder falsch).
+const budgets = JSON.parse(readFileSync(profilePath, "utf8")).budgets ?? {};
+if (budgets.image_kb !== undefined) {
+  assertions["resource-summary:image:size"] = ["error", { maxNumericValue: budgets.image_kb * 1024 }];
+}
+if (budgets.total_kb !== undefined) {
+  assertions["resource-summary:total:size"] = ["error", { maxNumericValue: budgets.total_kb * 1024 }];
+}
 
 process.stdout.write(JSON.stringify({
   ci: {
