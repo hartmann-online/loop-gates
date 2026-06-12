@@ -63,7 +63,7 @@ jobs:
           echo "ok: assets fängt das JS-Budget."
       - name: links MUSS rot sein (toter interner Link)
         run: |
-          if npx --yes linkinator ./fixtures/red/dist --recurse --skip "^https?://" --verbosity error; then
+          if npx --yes linkinator ./fixtures/red/dist --recurse --skip "^https?://(?!localhost|127\.0\.0\.1)" --verbosity error; then
             echo "::error::linkinator hat den toten Link NICHT gefangen"; exit 1
           fi
           echo "ok: links fängt den toten internen Link."

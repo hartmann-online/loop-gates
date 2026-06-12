@@ -72,7 +72,9 @@ jobs:
         run: node "$GITHUB_WORKSPACE/.gates/scripts/check-assets.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json"
 
       - name: Links (interne Links/Assets)   # blockierend
-        run: npx --yes linkinator "./${{ inputs.dist-dir }}" --recurse --skip "^https?://" --verbosity error
+        # Lookahead: linkinator serviert das dist lokal über http(s)://localhost — nur EXTERNE
+        # Domains werden im PR-Pfad übersprungen (externe Prüfung gehört in Content-Check/Cron).
+        run: npx --yes linkinator "./${{ inputs.dist-dir }}" --recurse --skip "^https?://(?!localhost|127\.0\.0\.1)" --verbosity error
 
       - name: Lighthouse (Scores je Profil)  # perf=warn, seo/bp/a11y=blockierend (ADR-0072)
         run: |
