@@ -33,7 +33,10 @@ const CHECKS = {
 let findings = 0;
 for (const f of htmlFiles) {
   const html = readFileSync(f, "utf8");
+  // 404-Seiten: canonical/og_image sind dort FALSCH (SEO: Fehlerseite kanonisiert/teilt nichts).
+  const is404 = f.endsWith("404.html");
   for (const r of req) {
+    if (is404 && (r === "canonical" || r === "og_image")) continue;
     const check = CHECKS[r];
     if (!check) { console.error(`STRUCTURE: unbekanntes require-Kriterium '${r}' im Profil`); findings++; continue; }
     if (!check(html)) { console.error(`STRUCTURE: ${f}: '${r}' fehlt (Profil ${profile.name} verlangt: ${req.join(", ")})`); findings++; }

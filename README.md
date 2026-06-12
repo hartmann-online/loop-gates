@@ -24,8 +24,10 @@ nach Taste-Gate, Baselines liegen im Caller unter `baseline/`).
 
 ## Fehlersemantik
 
-Blockierend (fail-closed): Build · Structure (Pflicht-Meta/h1) · Assets (Gewichts-Budgets inkl.
-`js_kb=0` = Zero-JS, ADR-0081) · interne Links · Lighthouse-Scores **SEO/Best-Practices/A11y**.
+Blockierend (fail-closed): Build · Structure (Pflicht-Meta/h1; 404-Seiten sind von canonical/og
+ausgenommen) · Assets (dist-Summen für `js_kb`/`font_kb`; `image_kb`/`total_kb` = **Seitengewicht
+pro Route** via Lighthouse resource-summary — dist-Summen wären bei Responsive-Bild-Pipelines
+falsch) · interne Links · Lighthouse-Scores **SEO/Best-Practices/A11y**.
 Warn-only: Lighthouse-**Performance**-Score (ADR-0072 — flaky; der Performance-Anspruch steckt
 deterministisch in den Gewichts-Budgets) · Screenshots. Jede blockierende Meldung nennt den
 Profilwert, gegen den verglichen wurde — Agenten iterieren gegen diese Logs.

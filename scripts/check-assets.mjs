@@ -31,8 +31,12 @@ const offenders = { image: [], font: [], js: [] };
   }
 })(dist);
 
+// SEMANTIK (v1.2.0): dist-Summen nur für js (Zero-JS-Doktrin: was im dist liegt, wird ausgeliefert)
+// und font (klein, nicht variant-multipliziert). image_kb/total_kb messen SEITENGEWICHT und laufen
+// als per-Route-Lighthouse-Resource-Budgets (lhci-config.mjs) — eine dist-Summe wäre bei
+// Responsive-Bild-Pipelines (n Varianten je Bild, Besucher lädt eine) strukturell falsch.
 let findings = 0;
-for (const [key, cls] of [["total_kb", "total"], ["image_kb", "image"], ["font_kb", "font"], ["js_kb", "js"]]) {
+for (const [key, cls] of [["font_kb", "font"], ["js_kb", "js"]]) {
   if (budgets[key] === undefined) continue;
   const kb = Math.round(sums[cls] / 1024);
   if (kb > budgets[key]) {
