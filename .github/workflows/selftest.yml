@@ -1,11 +1,12 @@
 name: selftest
 
 # Gate-Efficacy fuer das Gates-Repo selbst (ADR-0123-Prinzip, Spec §5):
-#   schema       -- alle Edition-Profile validieren gegen profile.schema.json
-#   green        -- edition-quality (lokal, PR-Stand via gates-ref) muss auf fixtures/green GRUEN sein
-#   red          -- jeder blockierende Eigen-Check muss fixtures/red ROT machen (erwartetes Fail)
-#   fleet-mode   -- Prod-Modus (--base-url) gruen/rot verifizieren
-#   app-ci-validate -- app-ci.yml Invarianten pruefen (evals-Guard + kein secrets:inherit)
+#   schema              -- alle Edition-Profile validieren gegen profile.schema.json
+#   green               -- edition-quality (lokal, PR-Stand via gates-ref) muss auf fixtures/green GRUEN sein
+#   red                 -- jeder blockierende Eigen-Check muss fixtures/red ROT machen (erwartetes Fail)
+#   fleet-mode          -- Prod-Modus (--base-url) gruen/rot verifizieren
+#   acceptance-validate -- check-acceptance.mjs: skip/red/green verifizieren (Hebel 1, ADR-0150 E4)
+#   app-ci-validate     -- app-ci.yml Invarianten pruefen (evals-Guard + kein secrets:inherit)
 # Lighthouse/axe-Rot-Faelle sind bewusst nicht fixture-getestet (Fremd-Tools, Kosten) -- dokumentiert.
 
 on:
@@ -107,6 +108,31 @@ jobs:
           fi
           echo "ok: Prod-Modus faengt js_kb-Verstoss + Score-Verstoesse."
 
+  # Validiert check-acceptance.mjs (Hebel 1, ADR-0150 E4):
+  #   - keine acceptance.yml → skip (exit 0, zero-overhead-Nachweis)
+  #   - failing shell-Assertion → exit 1 (red, gefangen-Nachweis)
+  #   - passing shell-Assertion → exit 0 (green, Gegenprobe)
+  acceptance-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: check-acceptance MUSS ohne acceptance.yml gruen sein (skip)
+        run: node scripts/check-acceptance.mjs --acceptance /nonexistent-acceptance.yml
+      - name: check-acceptance MUSS failing shell-Assertion fangen (red)
+        run: |
+          printf 'assertions:\n  - type: shell\n    command: "exit 1"\n    description: "Schlaegt immer fehl"\n' > /tmp/acceptance-red.yml
+          if node scripts/check-acceptance.mjs --acceptance /tmp/acceptance-red.yml --dist . --lh-dir /tmp; then
+            echo "::error::check-acceptance hat eine failing shell-Assertion NICHT gefangen"; exit 1
+          fi
+          echo "ok: check-acceptance faengt failing shell-Assertion."
+      - name: check-acceptance MUSS passing shell-Assertion gruen sein (green)
+        run: |
+          printf 'assertions:\n  - type: shell\n    command: "exit 0"\n    description: "Schlaegt nie fehl"\n' > /tmp/acceptance-green.yml
+          node scripts/check-acceptance.mjs --acceptance /tmp/acceptance-green.yml --dist . --lh-dir /tmp
+          echo "ok: check-acceptance laesst passing shell-Assertion durch."
+
   # Validiert Invarianten von app-ci.yml (ADR-0150 §3.3):
   #   - evals-Guard als Step-Level-Check (evals/promptfooconfig.yaml)
   #   - kein secrets:inherit (I4)
@@ -117,7 +143,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - name: app-default.json ist valides JSON
-        run: node -e "JSON.parse(require('fs').readFileSync('profiles/app-default.json','utf8')); console.log('ok: app-default.json ist valides JSON')"
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('profiles/app-default.json','utf8')); console.log('ok: app-default.json ist valides JSON')"
       - name: app-ci.yml enthaelt evals-Guard (evals/promptfooconfig.yaml Step-Check)
         run: |
           if ! grep -q "evals/promptfooconfig.yaml" .github/workflows/app-ci.yml; then
@@ -125,8 +152,10 @@ jobs:
           fi
           echo "ok: evals-Guard vorhanden."
       - name: app-ci.yml enthaelt kein secrets:inherit (I4)
+        # grep -E mit ^[^#]* schliesst Kommentar-Zeilen aus (verhindert False-Positive durch
+        # Dokumentations-Kommentare wie "# ... kein secrets: inherit ..." im Header).
         run: |
-          if grep -q "secrets: inherit" .github/workflows/app-ci.yml; then
+          if grep -Eq "^[^#]*secrets:\s*inherit" .github/workflows/app-ci.yml; then
             echo "::error::app-ci.yml: secrets:inherit verboten (I4)"; exit 1
           fi
           echo "ok: kein secrets:inherit."

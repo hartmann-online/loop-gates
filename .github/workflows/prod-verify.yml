@@ -1,0 +1,115 @@
+name: prod-verify
+
+# Reusable: Lighthouse-Lauf gegen eine Prod-URL nach jedem Vercel-Deployment.
+# Erkennt Prod-spezifische Regressionen (CSP-Konflikte, Build-Env-Abweichungen, etc.)
+# die der PR-Gate (Preview-URL) nicht sieht. Hebel 2 (ADR-0150 E5).
+#
+# Aufruf aus einem Edition-Repo (deploy-verify.yml):
+#   jobs:
+#     verify:
+#       if: github.event.deployment_status.state == 'success' && ...
+#       uses: hartmann-online/loop-gates/.github/workflows/prod-verify.yml@v1
+#       with:
+#         prod-url: ${{ github.event.deployment_status.target_url }}
+#         profile: edition-handcrafted
+#         routes: "/"
+#       secrets:
+#         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#         LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+
+on:
+  workflow_call:
+    inputs:
+      prod-url:
+        description: "Prod-URL (aus deployment_status.target_url)"
+        type: string
+        required: true
+      profile:
+        description: "Profilname unter profiles/ (ohne .json)"
+        type: string
+        default: edition-handcrafted
+      routes:
+        description: "Komma-separierte Routen-Liste"
+        type: string
+        default: "/"
+      gates-ref:
+        description: "Ref des loop-gates-Repos"
+        type: string
+        default: "v1"
+    secrets:
+      GH_TOKEN:
+        required: true
+        description: "GITHUB_TOKEN des Caller-Repos (issues:write)"
+      LINEAR_API_KEY:
+        required: false
+
+jobs:
+  prod-verify:
+    name: prod-verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hartmann-online/loop-gates
+          ref: ${{ inputs.gates-ref }}
+          path: .gates
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Lighthouse gegen Prod (Scores + Budgets aus Profil)
+        id: lh
+        run: |
+          set -euo pipefail
+          node .gates/scripts/lhci-config.mjs \
+            --base-url "${{ inputs.prod-url }}" \
+            --profile ".gates/profiles/${{ inputs.profile }}.json" \
+            --routes "${{ inputs.routes }}" > lighthouserc.json
+          npm install --no-save --prefix .gates-tools @lhci/cli@0.15.1 >/dev/null 2>&1
+          set +e
+          .gates-tools/node_modules/.bin/lhci autorun --config=lighthouserc.json 2>&1 | tee lh.txt
+          echo "code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Regression → Issue im Edition-Repo + Linear best-effort
+        if: steps.lh.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          excerpt=$(grep -E "failure|error|assert" lh.txt | tail -c 3000 || tail -c 3000 lh.txt)
+          title="Qualitaets-Regression (Deploy-Verify): ${{ inputs.prod-url }}"
+          body=$(printf 'Deploy-Verify hat nach Deployment eine Regression gegen Profil `%s` gemessen (Prod: %s, Routen: `%s`).\n\n```\n%s\n```\n\nLauf: %s\n\nHeilung: Issue per task.yml-Standard praezisieren oder direkt Label `agent` setzen (ADR-0150).' \
+            "${{ inputs.profile }}" "${{ inputs.prod-url }}" "${{ inputs.routes }}" \
+            "$excerpt" "$run_url")
+          existing=$(gh issue list --state open --search "$title in:title" \
+            --json number --jq ".[0].number" | head -1)
+          if [ -n "${existing:-}" ]; then
+            gh issue comment "$existing" --body "$body"
+            echo "Issue aktualisiert: #$existing"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+          # Linear best-effort (Team Kultmeister — identisches Muster wie fleet.yml)
+          if [ -n "${LINEAR_API_KEY:-}" ]; then
+            payload=$(node -e '
+              const q = `mutation($input: IssueCreateInput!){ issueCreate(input:$input){ success issue { identifier } } }`;
+              console.log(JSON.stringify({ query: q, variables: { input: {
+                teamId: "15f84d1b-c200-4f83-bb1e-5c63a03c87c1",
+                title: process.argv[1],
+                description: process.argv[2],
+              }}}));
+            ' "$title" "Deploy-Verify-Regression — Details im GitHub-Issue. Lauf: $run_url")
+            curl -sf -X POST https://api.linear.app/graphql \
+              -H "Authorization: $LINEAR_API_KEY" -H "Content-Type: application/json" \
+              -d "$payload" >/dev/null \
+              && echo "Linear-Issue erstellt (best-effort)." \
+              || echo "Linear-Issue fehlgeschlagen (non-fatal)."
+          fi
+          # Regression ist actionable → Job ROT
+          exit 1

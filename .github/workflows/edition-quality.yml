@@ -98,6 +98,15 @@ jobs:
           npm install --no-save --prefix "$GITHUB_WORKSPACE/.gates-tools" @lhci/cli@0.15.1 >/dev/null 2>&1
           "$GITHUB_WORKSPACE/.gates-tools/node_modules/.bin/lhci" autorun --config=lighthouserc.json
 
+      - name: Acceptance (.github/acceptance.yml)  # blockierend wenn vorhanden, skip wenn nicht (Hebel 1, ADR-0150 E4)
+        # Prüft maschinenlesbare Assertions (lighthouse/shell/structure) aus .github/acceptance.yml.
+        # Der Agent schreibt die Datei bei task-gesteuerten PRs; bestehende PRs ohne Datei: zero-overhead.
+        run: |
+          node "$GITHUB_WORKSPACE/.gates/scripts/check-acceptance.mjs" \
+            --acceptance "$GITHUB_WORKSPACE/.github/acceptance.yml" \
+            --dist "${{ inputs.dist-dir }}" \
+            --lh-dir ".lighthouseci-report"
+
   screenshots:
     runs-on: ubuntu-latest
     continue-on-error: true
