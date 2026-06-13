@@ -108,7 +108,7 @@ jobs:
           echo "ok: Prod-Modus faengt js_kb-Verstoss + Score-Verstoesse."
 
   # Validiert Invarianten von app-ci.yml (ADR-0150 §3.3):
-  #   - evals-Guard via hashFiles (Kosten-/Zeitschutz)
+  #   - evals-Guard als Step-Level-Check (evals/promptfooconfig.yaml)
   #   - kein secrets:inherit (I4)
   app-ci-validate:
     runs-on: ubuntu-latest
@@ -118,10 +118,10 @@ jobs:
         with: { node-version: "22" }
       - name: app-default.json ist valides JSON
         run: node -e "JSON.parse(require('fs').readFileSync('profiles/app-default.json','utf8')); console.log('ok: app-default.json ist valides JSON')"
-      - name: app-ci.yml enthaelt evals-Guard (hashFiles)
+      - name: app-ci.yml enthaelt evals-Guard (evals/promptfooconfig.yaml Step-Check)
         run: |
-          if ! grep -q "hashFiles('evals/promptfooconfig.yaml')" .github/workflows/app-ci.yml; then
-            echo "::error::app-ci.yml: evals-hashFiles-Guard fehlt"; exit 1
+          if ! grep -q "evals/promptfooconfig.yaml" .github/workflows/app-ci.yml; then
+            echo "::error::app-ci.yml: evals-Guard (evals/promptfooconfig.yaml Check) fehlt"; exit 1
           fi
           echo "ok: evals-Guard vorhanden."
       - name: app-ci.yml enthaelt kein secrets:inherit (I4)

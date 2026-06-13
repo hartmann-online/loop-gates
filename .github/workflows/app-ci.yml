@@ -13,6 +13,8 @@ name: app-ci
 # Eval-Kosten-Schutz: timeout-minutes 15 + Case-Deckel in der promptfoo-Config.
 # Secrets werden explizit durchgereicht (kein secrets: inherit, I4).
 # npm install (nicht npm ci): lockfile-bootstrapfrei fuer neue Repos; Lockfile-Commit in Slice 7.
+# Gotcha: hashFiles() ist in job-level if: von aufgerufenen Reusable Workflows nicht erlaubt
+#   (GitHub-Parse-Fehler bei cross-repo Aufruf). Guard daher als Step-Level-Check.
 
 on:
   workflow_call:
@@ -62,16 +64,28 @@ jobs:
   evals:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Laeuft nur wenn evals/promptfooconfig.yaml existiert (Guard: Kosten-/Zeitschutz)
-    if: ${{ hashFiles('evals/promptfooconfig.yaml') != '' }}
+    # Guard als Step-Level-Check: hashFiles() in job-level if: von aufgerufenen Workflows nicht erlaubt.
+    # Kosten-/Zeitschutz: Eval-Schritte werden uebersprungen wenn kein evals/promptfooconfig.yaml.
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Evals-Guard (ueberspringt wenn kein evals/promptfooconfig.yaml)
+        id: guard
+        run: |
+          if [ -f "evals/promptfooconfig.yaml" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+            echo "Kein evals/promptfooconfig.yaml — Eval-Schritte uebersprungen."
+          fi
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        if: steps.guard.outputs.run == 'true'
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
       - run: npm install --no-audit --no-fund
+        if: steps.guard.outputs.run == 'true'
       - name: Evals (promptfoo -- maximale Case-Zahl in Config, Erhoehung braucht Review)
+        if: steps.guard.outputs.run == 'true'
         run: npx --yes promptfoo@latest eval -c evals/promptfooconfig.yaml --no-cache
