@@ -6,5 +6,6 @@
   "evals": {
     "timeout_minutes": 15,
     "max_cases_per_pr": 50
-  }
+  },
+  "_doc": "ADR-0150 §3.3"
 }
