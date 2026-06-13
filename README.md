@@ -35,8 +35,8 @@ Profilwert, gegen den verglichen wurde — Agenten iterieren gegen diese Logs.
 ## Profile
 
 `profiles/<name>.json`, validiert gegen `profiles/profile.schema.json` (Selbsttest). Drei
-Editions-Tiers (foundation/handcrafted/masterpiece) + `fixture` (nur Selbsttest). Schwellen-Pflege:
-bis Q-26 von Hand, Kalibrierung gegen die realen Editionen ist Slice 2.
+Editions-Tiers (foundation/handcrafted/masterpiece) + `fixture` (nur Selbsttest). Schwellen-Pflege
+nach Flotten-Kalibrierung (Slice 2 — abgeschlossen).
 
 ## Prod-Modus (Fleet-Cron, ADR-0150 Slice 4)
 
@@ -67,9 +67,11 @@ bewusst nicht fixture-getestet (Fremd-Tools, Laufzeit/Kosten).
 - **linkinator statt lychee** (npm-nativ, kein Binary-Download); externe Links werden im PR-Pfad
   übersprungen (`--skip ^https?://`) — externe Link-Prüfung gehört in den Content-Check/Cron.
 - **a11y**: blockierend via Lighthouse-Accessibility-Score; ein dediziertes axe-Gate folgt bei
-  Bedarf (Kalibrierung Slice 2).
-- **npm-Pakete via npx unpinned** (erste Iteration); nach grünem Flotten-Rollout werden die
-  aufgelösten Versionen gepinnt (Follow-up im Selbsttest-Log dokumentiert).
+  Bedarf.
+- **Actions SHA-gepinnt** (konsistent mit app-ci.yml): `actions/checkout` v6.0.3,
+  `actions/setup-node` v6.4.0, `actions/upload-artifact` v7.0.1.
+- **npx-Pakete** (ajv-cli/linkinator/http-server) bleiben auf latest — exakte Versionen bei
+  Bedarf pinnen (Follow-up).
 - **Screenshot-Warnung** läuft über Step-Summary + Artefakt statt PR-Kommentar (keine zusätzlichen
   Permissions nötig).
 
