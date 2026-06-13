@@ -152,8 +152,10 @@ jobs:
           fi
           echo "ok: evals-Guard vorhanden."
       - name: app-ci.yml enthaelt kein secrets:inherit (I4)
+        # grep -E mit ^[^#]* schliesst Kommentar-Zeilen aus (verhindert False-Positive durch
+        # Dokumentations-Kommentare wie "# ... kein secrets: inherit ..." im Header).
         run: |
-          if grep -q "secrets: inherit" .github/workflows/app-ci.yml; then
+          if grep -Eq "^[^#]*secrets:\s*inherit" .github/workflows/app-ci.yml; then
             echo "::error::app-ci.yml: secrets:inherit verboten (I4)"; exit 1
           fi
           echo "ok: kein secrets:inherit."
