@@ -1,10 +1,12 @@
 name: selftest
 
-# Gate-Efficacy für das Gates-Repo selbst (ADR-0123-Prinzip, Spec §5):
-#   schema  — alle Profile validieren gegen profile.schema.json
-#   green   — edition-quality (lokal, PR-Stand via gates-ref) muss auf fixtures/green GRÜN sein
-#   red     — jeder blockierende Eigen-Check muss fixtures/red ROT machen (erwartetes Fail)
-# Lighthouse/axe-Rot-Fälle sind bewusst nicht fixture-getestet (Fremd-Tools, Kosten) — dokumentiert.
+# Gate-Efficacy fuer das Gates-Repo selbst (ADR-0123-Prinzip, Spec §5):
+#   schema       -- alle Edition-Profile validieren gegen profile.schema.json
+#   green        -- edition-quality (lokal, PR-Stand via gates-ref) muss auf fixtures/green GRUEN sein
+#   red          -- jeder blockierende Eigen-Check muss fixtures/red ROT machen (erwartetes Fail)
+#   fleet-mode   -- Prod-Modus (--base-url) gruen/rot verifizieren
+#   app-ci-validate -- app-ci.yml Invarianten pruefen (evals-Guard + kein secrets:inherit)
+# Lighthouse/axe-Rot-Faelle sind bewusst nicht fixture-getestet (Fremd-Tools, Kosten) -- dokumentiert.
 
 on:
   pull_request: {}
@@ -22,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
-      - name: Profile gegen Schema validieren
+      - name: Edition-Profile gegen Schema validieren
         run: |
           npx --yes ajv-cli validate -s profiles/profile.schema.json \
             -d "profiles/edition-foundation.json" \
@@ -54,28 +56,28 @@ jobs:
           if node scripts/check-structure.mjs --dist fixtures/red/dist --profile profiles/fixture.json; then
             echo "::error::check-structure hat die rote Fixture NICHT gefangen"; exit 1
           fi
-          echo "ok: structure fängt die Verstöße."
+          echo "ok: structure faengt die Verstoesse."
       - name: assets MUSS rot sein (Zero-JS)
         run: |
           if node scripts/check-assets.mjs --dist fixtures/red/dist --profile profiles/fixture.json; then
             echo "::error::check-assets hat die rote Fixture NICHT gefangen"; exit 1
           fi
-          echo "ok: assets fängt das JS-Budget."
+          echo "ok: assets faengt das JS-Budget."
       - name: links MUSS rot sein (toter interner Link)
         run: |
           if npx --yes linkinator ./fixtures/red/dist --recurse --skip "^https?://(?!localhost|127\.0\.0\.1)" --verbosity error; then
             echo "::error::linkinator hat den toten Link NICHT gefangen"; exit 1
           fi
-          echo "ok: links fängt den toten internen Link."
-      - name: structure MUSS auf green grün sein (Gegenprobe)
+          echo "ok: links faengt den toten internen Link."
+      - name: structure MUSS auf green gruen sein (Gegenprobe)
         working-directory: fixtures/green
         run: |
           npm install --no-audit --no-fund && npm run build
           node ../../scripts/check-structure.mjs --dist dist --profile ../../profiles/fixture.json
           node ../../scripts/check-assets.mjs   --dist dist --profile ../../profiles/fixture.json
 
-  # Prod-Modus (--base-url, Fleet-Cron ADR-0150 Slice 4): green serviert muss GRÜN,
-  # red serviert muss ROT sein (js_kb=0 via resource-summary:script + Score-Verstöße).
+  # Prod-Modus (--base-url, Fleet-Cron ADR-0150 Slice 4): green serviert muss GRUEN,
+  # red serviert muss ROT sein (js_kb=0 via resource-summary:script + Score-Verstoesse).
   fleet-mode:
     runs-on: ubuntu-latest
     steps:
@@ -88,13 +90,13 @@ jobs:
           (cd fixtures/red   && npm install --no-audit --no-fund && npm run build)
       - name: lhci installieren (isoliert, gepinnt)
         run: npm install --no-save --prefix .gates-tools @lhci/cli@0.15.1 >/dev/null 2>&1
-      - name: Prod-Modus MUSS auf green grün sein
+      - name: Prod-Modus MUSS auf green gruen sein
         run: |
           npx --yes http-server fixtures/green/dist -p 8080 --silent &
           sleep 2
           node scripts/lhci-config.mjs --base-url http://127.0.0.1:8080 --profile profiles/fixture.json > rc-green.json
           .gates-tools/node_modules/.bin/lhci autorun --config=rc-green.json
-          echo "ok: Prod-Modus ist auf der grünen Fixture grün."
+          echo "ok: Prod-Modus ist auf der gruenen Fixture gruen."
       - name: Prod-Modus MUSS auf red rot sein
         run: |
           npx --yes http-server fixtures/red/dist -p 8081 --silent &
@@ -103,4 +105,28 @@ jobs:
           if .gates-tools/node_modules/.bin/lhci autorun --config=rc-red.json; then
             echo "::error::Prod-Modus hat die rote Fixture NICHT gefangen"; exit 1
           fi
-          echo "ok: Prod-Modus fängt js_kb-Verstoß + Score-Verstöße."
+          echo "ok: Prod-Modus faengt js_kb-Verstoss + Score-Verstoesse."
+
+  # Validiert Invarianten von app-ci.yml (ADR-0150 §3.3):
+  #   - evals-Guard via hashFiles (Kosten-/Zeitschutz)
+  #   - kein secrets:inherit (I4)
+  app-ci-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: app-default.json ist valides JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('profiles/app-default.json','utf8')); console.log('ok: app-default.json ist valides JSON')"
+      - name: app-ci.yml enthaelt evals-Guard (hashFiles)
+        run: |
+          if ! grep -q "hashFiles('evals/promptfooconfig.yaml')" .github/workflows/app-ci.yml; then
+            echo "::error::app-ci.yml: evals-hashFiles-Guard fehlt"; exit 1
+          fi
+          echo "ok: evals-Guard vorhanden."
+      - name: app-ci.yml enthaelt kein secrets:inherit (I4)
+        run: |
+          if grep -q "secrets: inherit" .github/workflows/app-ci.yml; then
+            echo "::error::app-ci.yml: secrets:inherit verboten (I4)"; exit 1
+          fi
+          echo "ok: kein secrets:inherit."

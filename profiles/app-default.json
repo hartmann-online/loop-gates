@@ -1,0 +1,11 @@
+{
+  "name": "app-default",
+  "description": "Standard-Profil fuer Apps (narraplace, kultmeister-com). App-CI nutzt repo-eigene Config (eslint/tsconfig/vitest/promptfoo). Dieses Profil ist Metadaten-Anker, keine Gate-Quelle.",
+  "stack": "typescript",
+  "node_version": "22",
+  "evals": {
+    "timeout_minutes": 15,
+    "max_cases_per_pr": 50
+  },
+  "_doc": "ADR-0150 §3.3"
+}

@@ -1,0 +1,77 @@
+name: app-ci
+
+# Zentrales CI-Gate fuer Apps mit AI-Anteil (ADR-0150 §3.3).
+# Aufruf aus einem App-Repo:
+#   jobs:
+#     ci:
+#       uses: hartmann-online/loop-gates/.github/workflows/app-ci.yml@v1
+#       secrets:
+#         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+#
+# Jobs: lint -> typecheck -> test -> evals (nur wenn evals/promptfooconfig.yaml existiert)
+# Fehlersemantik: alle Jobs blockierend (fail-closed).
+# Eval-Kosten-Schutz: timeout-minutes 15 + Case-Deckel in der promptfoo-Config.
+# Secrets werden explizit durchgereicht (kein secrets: inherit, I4).
+# npm install (nicht npm ci): lockfile-bootstrapfrei fuer neue Repos; Lockfile-Commit in Slice 7.
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: "22"
+    secrets:
+      ANTHROPIC_API_KEY:
+        description: "Anthropic API Key fuer Eval-Jobs (optional, nur wenn evals/promptfooconfig.yaml existiert)"
+        required: false
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Laeuft nur wenn evals/promptfooconfig.yaml existiert (Guard: Kosten-/Zeitschutz)
+    if: ${{ hashFiles('evals/promptfooconfig.yaml') != '' }}
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - name: Evals (promptfoo -- maximale Case-Zahl in Config, Erhoehung braucht Review)
+        run: npx --yes promptfoo@latest eval -c evals/promptfooconfig.yaml --no-cache
