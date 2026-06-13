@@ -41,7 +41,7 @@ on:
         type: string
         default: ""
       link-skip:
-        description: "Zusätzliches Regex für Links, die zur LAUFZEIT via Platform-Rewrite aufgelöst werden (z. B. Plausible-Proxy /js/script\.js) und statisch 404 wären"
+        description: "Zusätzliches Regex für Links, die zur LAUFZEIT via Platform-Rewrite aufgelöst werden (z. B. Plausible-Proxy /js/script\\.js) und statisch 404 wären"
         type: string
         default: ""
       blocked-urls:
