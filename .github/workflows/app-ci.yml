@@ -8,10 +8,11 @@ name: app-ci
 #       secrets:
 #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 #
-# Jobs: lint → typecheck → test → evals (nur wenn evals/promptfooconfig.yaml existiert)
+# Jobs: lint -> typecheck -> test -> evals (nur wenn evals/promptfooconfig.yaml existiert)
 # Fehlersemantik: alle Jobs blockierend (fail-closed).
 # Eval-Kosten-Schutz: timeout-minutes 15 + Case-Deckel in der promptfoo-Config.
 # Secrets werden explizit durchgereicht (kein secrets: inherit, I4).
+# npm install (nicht npm ci): lockfile-bootstrapfrei fuer neue Repos; Lockfile-Commit in Slice 7.
 
 on:
   workflow_call:
@@ -33,7 +34,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
 
   typecheck:
@@ -44,7 +45,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run typecheck
 
   test:
@@ -55,13 +56,13 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm test
 
   evals:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Laeuft nur wenn evals/promptfooconfig.yaml existiert (Guard: Kosten-/Zeitschutz, Spec §3)
+    # Laeuft nur wenn evals/promptfooconfig.yaml existiert (Guard: Kosten-/Zeitschutz)
     if: ${{ hashFiles('evals/promptfooconfig.yaml') != '' }}
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -71,6 +72,6 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-      - run: npm ci
-      - name: Evals (promptfoo — maximale Case-Zahl in Config, Erhoehung braucht Review)
+      - run: npm install --no-audit --no-fund
+      - name: Evals (promptfoo -- maximale Case-Zahl in Config, Erhoehung braucht Review)
         run: npx --yes promptfoo@latest eval -c evals/promptfooconfig.yaml --no-cache
