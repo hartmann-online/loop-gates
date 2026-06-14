@@ -1,6 +1,6 @@
 name: edition-quality
 
-# Zentrales Quality-Gate für Kultmeister-Editionen (ADR-0150 E2/E3).
+# Zentrales Quality-Gate fuer Kultmeister-Editionen (ADR-0150 E2/E3).
 # Aufruf aus einem Edition-Repo (Hook):
 #   jobs:
 #     quality:
@@ -37,15 +37,15 @@ on:
         type: string
         default: "."
       routes:
-        description: "Komma-separierte Routen-Liste; überschreibt profile.routes (Editionen haben individuelle Seitenbäume)"
+        description: "Komma-separierte Routen-Liste; ueberschreibt profile.routes (Editionen haben individuelle Seitenbaeume)"
         type: string
         default: ""
       link-skip:
-        description: "Zusätzliches Regex für Links, die zur LAUFZEIT via Platform-Rewrite aufgelöst werden (z. B. Plausible-Proxy /js/script\\.js) und statisch 404 wären"
+        description: "Zusaetzliches Regex fuer Links, die zur LAUFZEIT via Platform-Rewrite aufgeloest werden (z. B. Plausible-Proxy /js/script\\.js) und statisch 404 waeren"
         type: string
         default: ""
       blocked-urls:
-        description: "Komma-separierte Wildcard-Patterns, die Lighthouse beim Messen blockt (Laufzeit-Rewrites, die statisch 404 wären und sonst den BP-Score via Konsolen-Fehler verfälschen)"
+        description: "Komma-separierte Wildcard-Patterns, die Lighthouse beim Messen blockt (Laufzeit-Rewrites, die statisch 404 waeren und sonst den BP-Score via Konsolen-Fehler verfaelschen)"
         type: string
         default: ""
       gates-ref:
@@ -60,15 +60,15 @@ jobs:
       run:
         working-directory: ${{ inputs.workdir }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: hartmann-online/loop-gates
           ref: ${{ inputs.gates-ref }}
           path: .gates
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ inputs.node-version }}
 
@@ -84,8 +84,8 @@ jobs:
         run: node "$GITHUB_WORKSPACE/.gates/scripts/check-assets.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json"
 
       - name: Links (interne Links/Assets)   # blockierend
-        # Lookahead: linkinator serviert das dist lokal über http(s)://localhost — nur EXTERNE
-        # Domains werden im PR-Pfad übersprungen (externe Prüfung gehört in Content-Check/Cron).
+        # Lookahead: linkinator serviert das dist lokal ueber http(s)://localhost — nur EXTERNE
+        # Domains werden im PR-Pfad uebersprungen (externe Pruefung gehoert in Content-Check/Cron).
         run: |
           SKIP='^https?://(?!localhost|127\.0\.0\.1)'
           if [ -n "${{ inputs.link-skip }}" ]; then SKIP="$SKIP|${{ inputs.link-skip }}"; fi
@@ -94,12 +94,12 @@ jobs:
       - name: Lighthouse (Scores je Profil)  # perf=warn, seo/bp/a11y=blockierend (ADR-0072)
         run: |
           node "$GITHUB_WORKSPACE/.gates/scripts/lhci-config.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --routes "${{ inputs.routes }}" --blocked "${{ inputs.blocked-urls }}" > lighthouserc.json
-          # Isoliert vom Caller-node_modules (Repo-overrides können lhci/express brechen) + gepinnt.
+          # Isoliert vom Caller-node_modules (Repo-overrides koennen lhci/express brechen) + gepinnt.
           npm install --no-save --prefix "$GITHUB_WORKSPACE/.gates-tools" @lhci/cli@0.15.1 >/dev/null 2>&1
           "$GITHUB_WORKSPACE/.gates-tools/node_modules/.bin/lhci" autorun --config=lighthouserc.json
 
       - name: Acceptance (.github/acceptance.yml)  # blockierend wenn vorhanden, skip wenn nicht (Hebel 1, ADR-0150 E4)
-        # Prüft maschinenlesbare Assertions (lighthouse/shell/structure) aus .github/acceptance.yml.
+        # Prueft maschinenlesbare Assertions (lighthouse/shell/structure) aus .github/acceptance.yml.
         # Der Agent schreibt die Datei bei task-gesteuerten PRs; bestehende PRs ohne Datei: zero-overhead.
         run: |
           node "$GITHUB_WORKSPACE/.gates/scripts/check-acceptance.mjs" \
@@ -114,13 +114,13 @@ jobs:
       run:
         working-directory: ${{ inputs.workdir }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: hartmann-online/loop-gates
           ref: ${{ inputs.gates-ref }}
           path: .gates
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ inputs.node-version }}
       - name: Build
@@ -132,7 +132,7 @@ jobs:
           npm install --no-save playwright pixelmatch pngjs >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null
           node "$GITHUB_WORKSPACE/.gates/scripts/screenshots.mjs" --dist "${{ inputs.dist-dir }}" --profile "$GITHUB_WORKSPACE/.gates/profiles/${{ inputs.profile }}.json" --baseline baseline --routes "${{ inputs.routes }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: screenshots-${{ inputs.profile }}
